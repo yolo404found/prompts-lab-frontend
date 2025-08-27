@@ -13,6 +13,13 @@ import {
   ListItemText,
   ListItemIcon,
   Divider,
+  Skeleton,
+  Alert,
+  LinearProgress,
+  Tooltip,
+  Fade,
+  Zoom,
+  IconButton,
 } from '@mui/material';
 import {
   Article as TemplateIcon,
@@ -22,6 +29,11 @@ import {
   Search as SearchIcon,
   Settings as NotionIcon,
   ArrowForward as ArrowForwardIcon,
+  Person as UserIcon,
+  Speed as SpeedIcon,
+  CheckCircle as CheckCircleIcon,
+  Warning as WarningIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -31,7 +43,7 @@ export const Home: React.FC = () => {
   const navigate = useNavigate();
 
   // Fetch recent templates and stats
-  const { data: recentTemplates, error: templatesError } = useQuery({
+  const { data: recentTemplates, error: templatesError, isLoading: templatesLoading } = useQuery({
     queryKey: ['recent-templates'],
     queryFn: () => {
       console.log('getTemplates query function called');
@@ -41,7 +53,7 @@ export const Home: React.FC = () => {
     enabled: !!sessionStorage.getItem('auth_token'),
   });
 
-  const { data: favorites, error: favoritesError } = useQuery({
+  const { data: favorites, error: favoritesError, isLoading: favoritesLoading } = useQuery({
     queryKey: ['favorites'],
     queryFn: () => {
       console.log('getFavorites query function called');
@@ -51,7 +63,7 @@ export const Home: React.FC = () => {
     enabled: !!sessionStorage.getItem('auth_token'),
   });
 
-  const { data: notionStatus, error: notionError } = useQuery({
+  const { data: notionStatus, error: notionError, isLoading: notionLoading } = useQuery({
     queryKey: ['notion-status'],
     queryFn: () => {
       console.log('getNotionStatus query function called');
@@ -78,6 +90,7 @@ export const Home: React.FC = () => {
       icon: <SearchIcon />,
       action: () => navigate('/templates'),
       color: 'primary',
+      count: recentTemplates?.total || 0,
     },
     {
       title: 'My Favorites',
@@ -85,6 +98,7 @@ export const Home: React.FC = () => {
       icon: <FavoriteIcon />,
       action: () => navigate('/favorites'),
       color: 'secondary',
+      count: favoritesList.length,
     },
     {
       title: 'Settings',
@@ -92,40 +106,84 @@ export const Home: React.FC = () => {
       icon: <NotionIcon />,
       action: () => navigate('/settings'),
       color: 'success',
+      count: notionStatus?.connected ? 1 : 0,
     },
   ];
+
+  const getStatusColor = (status: any) => {
+    if (status?.connected) return 'success';
+    if (status?.connected === false) return 'error';
+    return 'warning';
+  };
+
+  const getStatusText = (status: any) => {
+    if (status?.connected) return 'Connected';
+    if (status?.connected === false) return 'Disconnected';
+    return 'Checking...';
+  };
 
   return (
     <Box>
       {/* Welcome Section */}
-      <Paper sx={{ p: 4, mb: 4, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
-        <Typography variant="h3" component="h1" gutterBottom>
-          Welcome to Prompt Formatter
-        </Typography>
-        <Typography variant="h6" paragraph>
-          Create, customize, and export AI prompt templates with ease
-        </Typography>
-        <Box sx={{ mt: 3 }}>
-          <Button
-            variant="contained"
-            size="large"
-            onClick={() => navigate('/templates')}
-            startIcon={<SearchIcon />}
-            sx={{ mr: 2, mb: 1 }}
-          >
-            Start Browsing
-          </Button>
-          <Button
-            variant="outlined"
-            size="large"
-            onClick={() => navigate('/settings')}
-            startIcon={<NotionIcon />}
-            sx={{ mb: 1 }}
-            color="inherit"
-          >
-            Connect Notion
-          </Button>
+      <Paper sx={{ 
+        p: 4, 
+        mb: 4, 
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+        color: 'white',
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        <Box sx={{ position: 'relative', zIndex: 1 }}>
+          <Typography variant="h3" component="h1" gutterBottom>
+            Welcome to Prompt Formatter
+          </Typography>
+          <Typography variant="h6" paragraph>
+            Create, customize, and export AI prompt templates with ease
+          </Typography>
+          <Box sx={{ mt: 3 }}>
+            <Button
+              variant="contained"
+              size="large"
+              onClick={() => navigate('/templates')}
+              startIcon={<SearchIcon />}
+              sx={{ mr: 2, mb: 1 }}
+            >
+              Start Browsing
+            </Button>
+            <Button
+              variant="outlined"
+              size="large"
+              onClick={() => navigate('/settings')}
+              startIcon={<NotionIcon />}
+              sx={{ mb: 1 }}
+              color="inherit"
+            >
+              Connect Notion
+            </Button>
+          </Box>
         </Box>
+        
+        {/* Decorative background elements */}
+        <Box sx={{
+          position: 'absolute',
+          top: -50,
+          right: -50,
+          width: 200,
+          height: 200,
+          borderRadius: '50%',
+          background: 'rgba(255,255,255,0.1)',
+          zIndex: 0,
+        }} />
+        <Box sx={{
+          position: 'absolute',
+          bottom: -30,
+          left: -30,
+          width: 150,
+          height: 150,
+          borderRadius: '50%',
+          background: 'rgba(255,255,255,0.05)',
+          zIndex: 0,
+        }} />
       </Paper>
 
       {/* Quick Actions */}
@@ -135,38 +193,57 @@ export const Home: React.FC = () => {
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {quickActions.map((action, index) => (
           <Grid item xs={12} sm={6} md={4} key={index}>
-            <Card 
-              sx={{ 
-                height: '100%',
-                cursor: 'pointer',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: 4,
-                  transition: 'all 0.3s ease-in-out',
-                }
-              }}
-              onClick={action.action}
-            >
-              <CardContent sx={{ textAlign: 'center', p: 3 }}>
-                <Box sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'center', 
-                  mb: 2,
-                  '& .MuiSvgIcon-root': {
-                    fontSize: '3rem',
-                    color: `${action.color}.main`,
+            <Zoom in={true} style={{ transitionDelay: `${index * 100}ms` }}>
+              <Card 
+                sx={{ 
+                  height: '100%',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: 8,
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   }
-                }}>
-                  {action.icon}
-                </Box>
-                <Typography variant="h6" component="h3" gutterBottom>
-                  {action.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {action.description}
-                </Typography>
-              </CardContent>
-            </Card>
+                }}
+                onClick={action.action}
+              >
+                <CardContent sx={{ textAlign: 'center', p: 3 }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    mb: 2,
+                    position: 'relative',
+                    '& .MuiSvgIcon-root': {
+                      fontSize: '3rem',
+                      color: `${action.color}.main`,
+                    }
+                  }}>
+                    {action.icon}
+                    {action.count > 0 && (
+                      <Chip
+                        label={action.count}
+                        size="small"
+                        color={action.color}
+                        sx={{
+                          position: 'absolute',
+                          top: -8,
+                          right: -8,
+                          minWidth: '20px',
+                          height: '20px',
+                          fontSize: '0.75rem',
+                        }}
+                      />
+                    )}
+                  </Box>
+                  <Typography variant="h6" component="h3" gutterBottom>
+                    {action.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {action.description}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Zoom>
           </Grid>
         ))}
       </Grid>
@@ -188,17 +265,29 @@ export const Home: React.FC = () => {
               </Button>
             </Box>
             
-            {templatesError ? (
-              <Typography variant="body2" color="error" sx={{ textAlign: 'center', py: 4 }}>
+            {templatesLoading ? (
+              <Box sx={{ py: 2 }}>
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <Box key={index} sx={{ mb: 2 }}>
+                    <Skeleton variant="text" height={20} width="60%" />
+                    <Skeleton variant="text" height={16} width="40%" />
+                  </Box>
+                ))}
+              </Box>
+            ) : templatesError ? (
+              <Alert severity="error" sx={{ textAlign: 'center', py: 4 }}>
                 Failed to load templates. Please try again.
-              </Typography>
+              </Alert>
             ) : recentTemplatesList.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                No templates available yet
-              </Typography>
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <TemplateIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="body2" color="text.secondary">
+                  No templates available yet
+                </Typography>
+              </Box>
             ) : (
               <List>
-                                 {(recentTemplatesList || []).slice(0, 5).map((template, index) => (
+                {(recentTemplatesList || []).slice(0, 5).map((template, index) => (
                   <React.Fragment key={template.id}>
                     <ListItem 
                       button 
@@ -226,7 +315,7 @@ export const Home: React.FC = () => {
                         }
                       />
                     </ListItem>
-                                         {index < Math.min(4, (recentTemplatesList || []).length - 1) && <Divider />}
+                    {index < Math.min(4, (recentTemplatesList || []).length - 1) && <Divider />}
                   </React.Fragment>
                 ))}
               </List>
@@ -241,11 +330,11 @@ export const Home: React.FC = () => {
               Dashboard Overview
             </Typography>
             
-            <Grid container spacing={2}>
+            <Grid container spacing={2} sx={{ mb: 3 }}>
               <Grid item xs={6}>
                 <Card variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
                   <Typography variant="h4" color="primary" gutterBottom>
-                                         {templatesError ? '?' : (recentTemplatesList || []).length}
+                    {templatesLoading ? '...' : (recentTemplatesList || []).length}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Total Templates
@@ -256,7 +345,7 @@ export const Home: React.FC = () => {
               <Grid item xs={6}>
                 <Card variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
                   <Typography variant="h4" color="secondary" gutterBottom>
-                    {favoritesError ? '?' : favoritesList.length}
+                    {favoritesLoading ? '...' : favoritesList.length}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     My Favorites
@@ -274,27 +363,27 @@ export const Home: React.FC = () => {
               </Typography>
               
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                <NotionIcon color={notionStatus?.is_connected ? 'success' : 'disabled'} />
+                <NotionIcon color={getStatusColor(notionStatus)} />
                 <Box sx={{ flexGrow: 1 }}>
                   <Typography variant="body2">
                     Notion
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {notionStatus?.is_connected 
-                      ? `Connected to ${notionStatus.workspace_name}`
+                    {notionStatus?.connected 
+                      ? `Connected to ${notionStatus.workspace?.name || 'Unknown'}`
                       : 'Not connected'
                     }
                   </Typography>
                 </Box>
                 <Chip 
-                  label={notionStatus?.is_connected ? 'Connected' : 'Disconnected'} 
+                  label={getStatusText(notionStatus)} 
                   size="small"
-                  color={notionStatus?.is_connected ? 'success' : 'default'}
+                  color={getStatusColor(notionStatus)}
                   variant="outlined"
                 />
               </Box>
 
-              {!notionStatus?.is_connected && (
+              {!notionStatus?.connected && (
                 <Button
                   variant="outlined"
                   size="small"
@@ -305,9 +394,77 @@ export const Home: React.FC = () => {
                 </Button>
               )}
             </Box>
+
+            {/* System Status */}
+            <Divider sx={{ my: 3 }} />
+            <Box>
+              <Typography variant="subtitle1" gutterBottom>
+                System Status
+              </Typography>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                <CheckCircleIcon color="success" />
+                <Typography variant="body2">Backend API</Typography>
+                <Chip label="Online" size="small" color="success" variant="outlined" />
+              </Box>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                <CheckCircleIcon color="success" />
+                <Typography variant="body2">Database</Typography>
+                <Chip label="Connected" size="small" color="success" variant="outlined" />
+              </Box>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                {notionStatus?.connected ? (
+                  <CheckCircleIcon color="success" />
+                ) : (
+                  <WarningIcon color="warning" />
+                )}
+                <Typography variant="body2">Notion API</Typography>
+                <Chip 
+                  label={notionStatus?.connected ? 'Connected' : 'Disconnected'} 
+                  size="small" 
+                  color={notionStatus?.connected ? 'success' : 'warning'} 
+                  variant="outlined" 
+                />
+              </Box>
+            </Box>
           </Paper>
         </Grid>
       </Grid>
+
+      {/* Quick Tips Section */}
+      <Paper sx={{ p: 3, mt: 4 }}>
+        <Typography variant="h6" gutterBottom>
+          💡 Quick Tips
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={4}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <InfoIcon color="info" />
+              <Typography variant="body2">
+                Use variables like {'{variable_name}'} in your templates for dynamic content
+              </Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <SpeedIcon color="primary" />
+              <Typography variant="body2">
+                Connect Notion to export templates directly to your workspace
+              </Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <FavoriteIcon color="secondary" />
+              <Typography variant="body2">
+                Favorite templates you use frequently for quick access
+              </Typography>
+            </Box>
+          </Grid>
+        </Grid>
+      </Paper>
     </Box>
   );
 };

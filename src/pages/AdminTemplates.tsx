@@ -176,6 +176,39 @@ export const AdminTemplates: React.FC = () => {
     }
   }, [formData.content]);
 
+  // Parse variables from content
+  const parseVariables = (content: string): string[] => {
+    try {
+      const parsed = JSON.parse(content);
+      const variables: string[] = [];
+      const variableSet = new Set<string>();
+
+      const extractVariables = (obj: any) => {
+        if (typeof obj === 'string') {
+          const matches = obj.match(/\{([a-zA-Z0-9_]+)\}/g);
+          if (matches) {
+            matches.forEach(match => {
+              const key = match.slice(1, -1); // Remove { and }
+              if (!variableSet.has(key)) {
+                variableSet.add(key);
+                variables.push(key);
+              }
+            });
+          }
+        } else if (Array.isArray(obj)) {
+          obj.forEach(extractVariables);
+        } else if (typeof obj === 'object' && obj !== null) {
+          Object.values(obj).forEach(extractVariables);
+        }
+      };
+
+      extractVariables(parsed);
+      return variables;
+    } catch (error) {
+      return [];
+    }
+  };
+
   // Validate JSON content
   const validateContent = (content: string) => {
     try {
@@ -217,13 +250,22 @@ export const AdminTemplates: React.FC = () => {
   const handleSubmit = () => {
     if (!validateContent(formData.content)) return;
 
+    // Transform content to match backend schema
+    const transformedData = {
+      ...formData,
+      content: {
+        prompt: formData.content,
+        variables: parseVariables(formData.content)
+      }
+    };
+
     if (editingTemplate) {
       updateTemplateMutation.mutate({
         id: editingTemplate.id,
-        data: formData,
+        data: transformedData,
       });
     } else {
-      createTemplateMutation.mutate(formData);
+      createTemplateMutation.mutate(transformedData);
     }
   };
 
@@ -278,7 +320,9 @@ export const AdminTemplates: React.FC = () => {
     );
   }
 
-  const allTemplates = templates?.data || [];
+  const allTemplates = templates?.templates || [];
+
+  console.log('all templates =>',allTemplates)
 
   return (
     <Box>

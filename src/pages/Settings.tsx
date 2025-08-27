@@ -172,7 +172,7 @@ export const Settings: React.FC = () => {
               <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
                 <CircularProgress />
               </Box>
-            ) : notionStatus?.is_connected ? (
+            ) : notionStatus?.connected ? (
               <Box>
                 <Alert severity="success" sx={{ mb: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -187,10 +187,10 @@ export const Settings: React.FC = () => {
                       Workspace
                     </Typography>
                     <Typography variant="body1" gutterBottom>
-                      {notionStatus.workspace_name}
+                      {notionStatus.workspace?.name || 'Unknown'}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      ID: {notionStatus.workspace_id}
+                      ID: {notionStatus.workspace?.id || 'Unknown'}
                     </Typography>
                   </CardContent>
                 </Card>

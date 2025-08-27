@@ -27,12 +27,12 @@ export interface Favorite {
 }
 
 export interface NotionIntegration {
-  id: string;
-  user_id: string;
-  workspace_name: string;
-  workspace_id: string;
-  is_connected: boolean;
-  created_at: string;
+  connected: boolean;
+  workspace: {
+    name: string;
+    id: string;
+  } | null;
+  lastUpdated?: string;
 }
 
 export interface ExportRequest {

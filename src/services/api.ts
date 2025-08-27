@@ -64,8 +64,24 @@ class ApiService {
     search?: string;
     category?: string;
   }): Promise<PaginatedResponse<Template>> {
-    const response = await this.api.get('/templates', { params });
-    return response.data;
+    // Convert page to offset for backend
+    const apiParams: Record<string, any> = { ...params };
+    if (apiParams.page) {
+      apiParams.offset = (apiParams.page - 1) * (apiParams.limit || 20);
+      delete apiParams.page;
+    }
+    
+    const response = await this.api.get('/templates', { params: apiParams });
+    
+    // Transform backend response to match frontend PaginatedResponse format
+    const backendData = response.data.data;
+    return {
+      data: backendData.templates || [],
+      total: backendData.total || 0,
+      page: params.page || 1,
+      limit: params.limit || 20,
+      hasMore: (backendData.total || 0) > ((params.page || 1) * (params.limit || 20))
+    };
   }
 
   async getTemplate(id: string): Promise<Template> {

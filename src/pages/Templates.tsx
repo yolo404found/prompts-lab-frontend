@@ -19,12 +19,22 @@ import {
   Alert,
   CircularProgress,
   InputAdornment,
+  Badge,
+  Tooltip,
+  Fade,
+  Zoom,
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Favorite as FavoriteIcon,
   FavoriteBorder as FavoriteBorderIcon,
   ContentCopy as CopyIcon,
+  Sort as SortIcon,
+  FilterList as FilterIcon,
+  Clear as ClearIcon,
+  TrendingUp as TrendingIcon,
+  AccessTime as TimeIcon,
+  Star as StarIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -46,12 +56,21 @@ const categories = [
   'Other'
 ];
 
+const sortOptions = [
+  { value: 'newest', label: 'Newest First', icon: <TimeIcon /> },
+  { value: 'oldest', label: 'Oldest First', icon: <TimeIcon /> },
+  { value: 'popular', label: 'Most Popular', icon: <TrendingIcon /> },
+  { value: 'name', label: 'Name A-Z', icon: <SortIcon /> },
+];
+
 export const Templates: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [sortBy, setSortBy] = useState('newest');
+  const [showFilters, setShowFilters] = useState(false);
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // Infinite query for templates
@@ -62,8 +81,9 @@ export const Templates: React.FC = () => {
     isFetchingNextPage,
     isLoading,
     error,
+    refetch,
   } = useInfiniteQuery({
-    queryKey: ['templates', debouncedSearch, selectedCategory],
+    queryKey: ['templates', debouncedSearch, selectedCategory, sortBy],
     queryFn: ({ pageParam = 1 }) =>
       apiService.getTemplates({
         page: pageParam,
@@ -104,6 +124,14 @@ export const Templates: React.FC = () => {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('All');
+    setSortBy('newest');
+  };
+
+  const hasActiveFilters = searchQuery || selectedCategory !== 'All' || sortBy !== 'newest';
+
   // Auto-load more when scrolling near bottom
   useEffect(() => {
     const handleScroll = () => {
@@ -120,6 +148,7 @@ export const Templates: React.FC = () => {
   }, [loadMore]);
 
   const allTemplates = data?.pages.flatMap(page => page.data) || [];
+  const totalTemplates = data?.pages[0]?.total || 0;
 
   if (error) {
     return (
@@ -127,7 +156,14 @@ export const Templates: React.FC = () => {
         <Typography variant="h4" component="h1" gutterBottom>
           Templates
         </Typography>
-        <Alert severity="error">
+        <Alert 
+          severity="error" 
+          action={
+            <Button color="inherit" size="small" onClick={() => refetch()}>
+              Retry
+            </Button>
+          }
+        >
           Failed to load templates. Please try again later.
         </Alert>
       </Box>
@@ -136,46 +172,105 @@ export const Templates: React.FC = () => {
 
   return (
     <Box>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Templates
-      </Typography>
+      {/* Header with Stats */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Box>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Templates
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {totalTemplates} templates available • {allTemplates.length} loaded
+          </Typography>
+        </Box>
+        <Button
+          variant="outlined"
+          startIcon={<FilterIcon />}
+          onClick={() => setShowFilters(!showFilters)}
+          color={hasActiveFilters ? 'primary' : 'inherit'}
+        >
+          Filters {hasActiveFilters && <Badge badgeContent="!" color="primary" />}
+        </Button>
+      </Box>
 
-      {/* Filters */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              placeholder="Search templates..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
-              <InputLabel>Category</InputLabel>
-              <Select
-                value={selectedCategory}
-                label="Category"
-                onChange={(e) => setSelectedCategory(e.target.value)}
+      {/* Enhanced Filters */}
+      <Fade in={showFilters}>
+        <Paper sx={{ p: 3, mb: 3, border: hasActiveFilters ? '2px solid' : '1px solid', borderColor: hasActiveFilters ? 'primary.main' : 'divider' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <FilterIcon sx={{ mr: 1 }} />
+            <Typography variant="h6">Search & Filters</Typography>
+            {hasActiveFilters && (
+              <Button
+                size="small"
+                startIcon={<ClearIcon />}
+                onClick={clearFilters}
+                sx={{ ml: 'auto' }}
               >
-                {categories.map((category) => (
-                  <MenuItem key={category} value={category}>
-                    {category}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                Clear All
+              </Button>
+            )}
+          </Box>
+          
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                placeholder="Search templates by title, description, or content..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                  endAdornment: searchQuery && (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => setSearchQuery('')}>
+                        <ClearIcon />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>Category</InputLabel>
+                <Select
+                  value={selectedCategory}
+                  label="Category"
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                >
+                  {categories.map((category) => (
+                    <MenuItem key={category} value={category}>
+                      {category}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>Sort By</InputLabel>
+                <Select
+                  value={sortBy}
+                  label="Sort By"
+                  onChange={(e) => setSortBy(e.target.value)}
+                >
+                  {sortOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {option.icon}
+                        {option.label}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
           </Grid>
-        </Grid>
-      </Paper>
+        </Paper>
+      </Fade>
 
       {/* Templates Grid */}
       {isLoading ? (
@@ -197,91 +292,134 @@ export const Templates: React.FC = () => {
         </Grid>
       ) : allTemplates.length === 0 ? (
         <Paper sx={{ p: 8, textAlign: 'center' }}>
+          <SearchIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" color="text.secondary" gutterBottom>
-            No templates found
+            {searchQuery || selectedCategory !== 'All'
+              ? 'No templates match your criteria'
+              : 'No templates found'}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" paragraph>
             {searchQuery || selectedCategory !== 'All'
               ? 'Try adjusting your search or filter criteria.'
               : 'Templates will appear here once they are added to the system.'}
           </Typography>
+          {(searchQuery || selectedCategory !== 'All') && (
+            <Button
+              variant="outlined"
+              onClick={clearFilters}
+              startIcon={<ClearIcon />}
+              sx={{ mr: 2 }}
+            >
+              Clear Filters
+            </Button>
+          )}
+          <Button
+            variant="contained"
+            onClick={() => refetch()}
+            startIcon={<SearchIcon />}
+          >
+            Refresh
+          </Button>
         </Paper>
       ) : (
         <>
           <Grid container spacing={3}>
-            {allTemplates.map((template) => (
+            {allTemplates.map((template, index) => (
               <Grid item xs={12} sm={6} md={4} key={template.id}>
-                <Card 
-                  sx={{ 
-                    height: '100%', 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    cursor: 'pointer',
-                    '&:hover': {
-                      boxShadow: 4,
-                      transform: 'translateY(-2px)',
-                      transition: 'all 0.2s ease-in-out',
-                    }
-                  }}
-                  onClick={() => handleTemplateClick(template.id)}
-                >
-                  <CardContent sx={{ flexGrow: 1 }}>
-                    <Typography variant="h6" component="h2" gutterBottom>
-                      {template.title}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" paragraph>
-                      {template.description}
-                    </Typography>
-                    <Box sx={{ mb: 2 }}>
-                      <Chip 
-                        label={template.category} 
-                        size="small" 
-                        color="primary" 
-                        variant="outlined"
-                      />
-                    </Box>
-                    {template.variables && template.variables.length > 0 && (
-                      <Box sx={{ mb: 2 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          Variables: {template.variables.join(', ')}
-                        </Typography>
+                <Zoom in={true} style={{ transitionDelay: `${index * 100}ms` }}>
+                  <Card 
+                    sx={{ 
+                      height: '100%', 
+                      display: 'flex', 
+                      flexDirection: 'column',
+                      cursor: 'pointer',
+                      position: 'relative',
+                      '&:hover': {
+                        boxShadow: 8,
+                        transform: 'translateY(-4px)',
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      }
+                    }}
+                    onClick={() => handleTemplateClick(template.id)}
+                  >
+                    {/* Favorite Badge */}
+                    {template.is_favorite && (
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: 8,
+                          right: 8,
+                          zIndex: 1,
+                        }}
+                      >
+                        <Tooltip title="Favorite">
+                          <StarIcon color="warning" />
+                        </Tooltip>
                       </Box>
                     )}
-                  </CardContent>
-                  <CardActions sx={{ justifyContent: 'space-between', p: 2 }}>
-                    <Box>
-                      <IconButton
+
+                    <CardContent sx={{ flexGrow: 1 }}>
+                      <Typography variant="h6" component="h2" gutterBottom>
+                        {template.title}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" paragraph>
+                        {template.description}
+                      </Typography>
+                      <Box sx={{ mb: 2 }}>
+                        <Chip 
+                          label={template.category} 
+                          size="small" 
+                          color="primary" 
+                          variant="outlined"
+                        />
+                      </Box>
+                      {template.variables && template.variables.length > 0 && (
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Variables: {template.variables.join(', ')}
+                          </Typography>
+                        </Box>
+                      )}
+                    </CardContent>
+                    <CardActions sx={{ justifyContent: 'space-between', p: 2 }}>
+                      <Box>
+                        <Tooltip title={template.is_favorite ? 'Remove from favorites' : 'Add to favorites'}>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleFavorite(template.id);
+                            }}
+                            color={template.is_favorite ? 'error' : 'default'}
+                          >
+                            {template.is_favorite ? <FavoriteIcon /> : <FavoriteBorderIcon />}
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Copy template">
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyTemplate(template);
+                            }}
+                          >
+                            <CopyIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                      <Button
                         size="small"
+                        variant="outlined"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleToggleFavorite(template.id);
-                        }}
-                        color={template.is_favorite ? 'error' : 'default'}
-                      >
-                        {template.is_favorite ? <FavoriteIcon /> : <FavoriteBorderIcon />}
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCopyTemplate(template);
+                          handleTemplateClick(template.id);
                         }}
                       >
-                        <CopyIcon />
-                      </IconButton>
-                    </Box>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleTemplateClick(template.id);
-                      }}
-                    >
-                      Use Template
-                    </Button>
-                  </CardActions>
-                </Card>
+                        Use Template
+                      </Button>
+                    </CardActions>
+                  </Card>
+                </Zoom>
               </Grid>
             ))}
           </Grid>
@@ -291,12 +429,22 @@ export const Templates: React.FC = () => {
             <Box sx={{ textAlign: 'center', mt: 4 }}>
               <Button
                 variant="outlined"
+                size="large"
                 onClick={loadMore}
                 disabled={isFetchingNextPage}
                 startIcon={isFetchingNextPage ? <CircularProgress size={20} /> : null}
               >
-                {isFetchingNextPage ? 'Loading...' : 'Load More'}
+                {isFetchingNextPage ? 'Loading...' : 'Load More Templates'}
               </Button>
+            </Box>
+          )}
+
+          {/* End of Results */}
+          {!hasNextPage && allTemplates.length > 0 && (
+            <Box sx={{ textAlign: 'center', mt: 4, py: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                🎉 You've reached the end! {allTemplates.length} templates loaded.
+              </Typography>
             </Box>
           )}
         </>
